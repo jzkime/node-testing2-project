@@ -26,6 +26,7 @@ const expected = [
 
 const newChar = {name: 'Misa'}
 const newDefault = {id: 4, description: 'n/a'}
+const invalidChar = {message: 'no such character!'}
 
 describe("Death Note Model", () => {
     test("getAll()", async () => {
@@ -54,6 +55,8 @@ describe("Death Note Model", () => {
         expect(result).toEqual({...expected[2], description: 'best detective'});
         result = await dnMod.getAll();
         expect(result).toHaveLength(3);
+        result = await dnMod.update(99, {name: 'Eren Yaeger'});
+        expect(result).not.toBeDefined();
     })
     test("remove()", async () => {
         let result = await dnMod.remove(3);
@@ -67,8 +70,50 @@ describe("Death Note Model", () => {
     })
 })
 
-const server = require('../server')
+const request = require('supertest');
+const server = require('../server');
 
 describe("Death Note Endpoints", () => {
-
+    test("[GET] /death-note", async () => {
+        let result = await request(server).get('/death-note');
+        expect(result.statusCode).toBe(200);
+        expect(result.body).toEqual(expected);
+        expect(result.body).toHaveLength(3);
+    });
+    test("[GET] /death-note/:id", async () => {
+        let result = await request(server).get('/death-note/1');
+        expect(result.statusCode).toBe(200);
+        expect(result.body).toEqual(expected[0]);
+        result = await request(server).get('/death-note/99');
+        expect(result.statusCode).toBe(404);
+        expect(result.body).toEqual(invalidChar)
+    });
+    test("[POST] /death-note", async () => {
+        let result = await request(server).post('/death-note').send(newChar);
+        expect(result.statusCode).toBe(201);
+        expect(result.body).toEqual({...newChar, ...newDefault});
+        result = await request(server).get('/death-note');
+        expect(result.body).toHaveLength(4);
+    });
+    test("[PUT] /death-note/:id", async () => {
+        let result = await request(server).put('/death-note/3').send({description: 'best detective'});
+        expect(result.statusCode).toBe(200);
+        expect(result.body).toEqual({...expected[2], description: 'best detective'});
+        result = await request(server).put('/death-note/99').send({name: 'Eren Yaeger'});
+        expect(result.statusCode).toBe(404);
+        expect(result.body).toEqual(invalidChar);
+    });
+    test("[DELETE] /death-note", async () => {
+        let result = await request(server).delete('/death-note/3');
+        expect(result.statusCode).toBe(200);
+        expect(result.body).toEqual(expected[2]);
+        result = await dnMod.getAll();
+        expect(result).toHaveLength(2);
+        result = await request(server).delete('/death-note/3');
+        expect(result.statusCode).toBe(404);
+        expect(result.body).toEqual(invalidChar)
+        result = await request(server).delete('/death-note/99');
+        expect(result.statusCode).toBe(404);
+        expect(result.body).toEqual(invalidChar)
+    });
 })
